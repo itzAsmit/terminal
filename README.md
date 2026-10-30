@@ -34,10 +34,11 @@ The same ghost runs as a static web page — nothing to install, no key needed:
 
 **[Open the séance →](https://USERNAME.github.io/terminal-seance/)** *(after hosting — see below)* — type
 `pytest tests/ -q`, `git push --force origin main`, `sleep 90`, `seance demo`.
-Without a key she speaks from the bundled whisper list, with the same tiers and
-the same 1-in-5 throttle. Open **mode**, paste an OpenRouter key, and she thinks
-with `google/gemma-3-27b-it:free` live — 2.5 s cap, one attempt, silent fallback
-to whispers. The key never leaves the browser.
+Then just talk — `hi`, `who are you`, `tell me a joke` — she answers in
+character: live through the host's proxy, or from bundled whispers offline.
+Visitors never enter a key and never see one — how she thinks is the host's
+choice, auto-detected by the page, with the same tiers and the same 1-in-5
+throttle.
 
 ---
 
@@ -266,9 +267,8 @@ Netlify / Cloudflare Pages / plain static hosting work identically.
   **public** — only use one restricted to free models with a $0 spend limit,
   and rotate it if abused.
 
-Priority in the browser is always: visitor's own key → host-provided key
-(proxy or injected) → bundled whispers; a visitor can choose *"use local
-whispers"* to opt out of all of it.
+Priority in the browser is always: host proxy → injected key → bundled
+whispers — auto-detected, with no key prompt ever shown to visitors.
 
 ## License
 

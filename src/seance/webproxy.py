@@ -49,7 +49,7 @@ TIMEOUT = 2.5  # the 2-second law, hosting edition
 COOLDOWN = 120.0
 MAX_BODY = 4096
 MAX_CMD = 500
-TIERS = {"dangerous", "failed", "long", "boring"}
+TIERS = {"dangerous", "failed", "long", "boring", "chat"}
 
 _state = {"cooldown_until": 0.0, "upstream_hits": 0}
 
@@ -175,7 +175,17 @@ class Handler(SimpleHTTPRequestHandler):
 
         if not cmd:
             return self._json(200, {"content": None})
-        context = ghost.build_context(cmd, exit_code, dur, ghost.Tier(tier), label)
+        if tier == "chat":
+            # speech, not a shell command — a conversational context instead
+            # of the command-reaction one
+            context = (
+                f'the living one is speaking to you — this is not a shell command. '
+                f'they said: "{cmd}"\n'
+                "(answer in character as Agnes: ONE short sentence or two, dry "
+                "Victorian wit, occasional Spanish)"
+            )
+        else:
+            context = ghost.build_context(cmd, exit_code, dur, ghost.Tier(tier), label)
         return self._json(200, {"content": ask_upstream(context)})
 
 

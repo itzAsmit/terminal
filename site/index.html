@@ -14,7 +14,7 @@
 <header>
   <div class="brand"><span class="glyph">†</span> terminal-seance <span class="sub">· the ghost in your machine</span></div>
   <nav>
-    <button id="btnMode" class="chip" title="choose how the ghost thinks">mode: whispers</button>
+    <span id="modeBadge" class="chip badge" title="how the ghost thinks — set by the host"></span>
     <button id="btnMute" class="chip" title="silence her (seance off)">unmuted</button>
     <a class="chip" href="https://github.com/terminal-seance/terminal-seance" target="_blank" rel="noopener">GitHub ↗</a>
   </nav>
@@ -38,30 +38,13 @@
     </div>
     <p class="note" id="liveNote">
       No key needed — she speaks from a bundled list of whispers, and boring
-      successes are throttled to 1-in-5 on purpose. Open <em>mode</em>, paste an
-      OpenRouter key, and she thinks with <strong>google/gemma-3-27b-it:free</strong>
-      instead — capped at 2.5&nbsp;s, one attempt, falling back to whispers on any
-      error. Your key never leaves this browser except to the endpoint you set.
+      successes are throttled to 1-in-5 on purpose. When the host has wired this
+      page to a live model (auto-detected), she thinks with
+      <strong>google/gemma-3-27b-it:free</strong> instead — capped at a few
+      seconds, one attempt, falling back to whispers on any error.
     </p>
   </section>
 </main>
-
-<dialog id="dlg">
-  <h3>how the ghost thinks</h3>
-  <p class="dlg-note">
-    Empty key → bundled whispers (offline, always works). With a key she calls
-    any OpenAI-compatible chat endpoint live — OpenRouter's free Gemma tier, or
-    your own llama.cpp / LM Studio server. Errors, timeouts and rate limits
-    silently fall back to whispers.
-  </p>
-  <label>base_url <input id="fBase" type="text" spellcheck="false"></label>
-  <label>model <input id="fModel" type="text" spellcheck="false"></label>
-  <label>api key <input id="fKey" type="password" autocomplete="off" placeholder="sk-or-v1-…"></label>
-  <div class="dlg-actions">
-    <button id="dlgLocal" class="ghostbtn">use local whispers</button>
-    <button id="dlgSave" class="primary">haunt (save)</button>
-  </div>
-</dialog>
 
 <!-- generated at build/deploy time by scripts/build_site.py (gitignored);
      missing on a fresh clone — the ghost simply runs in whispers mode -->

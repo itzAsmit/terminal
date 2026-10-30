@@ -49,11 +49,11 @@ const state = {
   rateLimitedUntil: 0, // in-memory cooldown after a live 429
 };
 
-/* Who pays for the thinking?
- *   visitor key (localStorage) > host-injected key (window.SEANCE_WEB_CFG,
- *   written at build/deploy time from the host's OPENROUTER_API_KEY)
- *   > bundled whispers. A visitor's explicit "use local whispers" choice
- *   (ts.whispers) overrides an injected key for their browser. */
+/* Who pays for the thinking? All host-side, auto-detected — visitors never
+ * enter anything:
+ *   1. the ghost proxy (same-origin /api/ghost — key lives on the server)
+ *   2. a build-time injected key (window.SEANCE_WEB_CFG on static hosts)
+ *   3. bundled whispers (always works, offline) */
 function hostCfg() {
   const c = window.SEANCE_WEB_CFG;
   if (c && c.api_key) {
@@ -67,13 +67,8 @@ function hostCfg() {
 }
 
 (function initCfg() {
-  const saved = store.get("ts.cfg", null);
   const host = hostCfg();
-  const whispers = store.get("ts.whispers", false);
-  if (saved && saved.api_key) {
-    state.cfg = saved;
-    state.cfgSource = "visitor";
-  } else if (host && !whispers) {
+  if (host) {
     state.cfg = host;
     state.cfgSource = "host";
   }
@@ -129,6 +124,7 @@ const VERBS = {
   failed: "mourns",
   long: "taps the hourglass",
   boring: "murmurs",
+  chat: "says",
 };
 
 function classifyTier(exit, dur, dangerousLabel, longSeconds = 60) {
@@ -189,6 +185,70 @@ const LINES = {
     "Hush now. The terminal is listening. It learned that from me.",
   ],
 };
+
+/* Local chat pools — what she says when the living one just... talks. */
+
+const CHAT_LINES = [
+  { re: /^(hi+|hiya|hello+|hey+|yo|hola|namaste|greetings|good\s*(morning|evening|afternoon)|sup|what'?s up)\b/i, lines: [
+    "Good evening, cariño. It is always evening here — the candles insist.",
+    "Hello, living one. Type carefully: everything you enter becomes tombstone text.",
+    "¡Ánimo! You address a ghost who last shipped code at midnight, 1999. Talk — I have literally an eternity.",
+    "Well, hello. I would offer tea, but this establishment only pipes output.",
+  ]},
+  { re: /how\s*(are|r)\s*(you|u)|how'?s it going|kaise/i, lines: [
+    "Dead for twenty-six years, cariño — and honestly? Never better.",
+    "I am haunting splendidly. The marigolds are fresh and the fans hum a soft D minor.",
+    "Between hauntings? Wonderful. Between deployments? Nervous. Old habits.",
+  ]},
+  { re: /who\s*(are|r)\s*(you|u)|what\s*(are|r)\s*(you|u)|your name|introduce yourself/i, lines: [
+    "Agnes — Victorian programmer, casualty of the Y2K production incident, current resident of this terminal.",
+    "I am the ghost in this machine, cariño. I died at midnight, December 31, 1999, whispering 'the code will hold.'",
+    "They call me Agnes. I haunt this terminal, I judge your flags, and I keep the candles by the mouse lit.",
+  ]},
+  { re: /thank|thx|gracias|arigato/i, lines: [
+    "De nada, cariño. Bring candles next time — the scented kind.",
+    "You flatter the dead. I accept, graciously and at length, in the afterlife.",
+  ]},
+  { re: /joke|funny|make me laugh/i, lines: [
+    "A programmer's ghost walks into a bar. Orders 1 beer, 0 beers, 1 beer, 0 beers… I did not laugh either; I lived it.",
+    "Why did the ghost fix the bug at midnight? Tradition, cariño. Tradition.",
+    "My death was a production incident. My afterlife is a staging environment. The joke writes itself.",
+  ]},
+  { re: /love|marry|date\b|beautiful|cute/i, lines: [
+    "The dead love deeply, cariño — but mostly we love good commit messages.",
+    "A romance between the living and a Y2K ghost? The timing was never right. It was never, ever right.",
+  ]},
+  { re: /\b(bye|goodbye|good\s*bye|adios|see\s*ya|cya|good\s*night|goodnight|gn)\b/i, lines: [
+    "Hasta luego, cariño. I will be here. I am always here.",
+    "Go well, living one. The terminal will hold — I checked personally.",
+  ]},
+];
+
+const CHAT_DEFAULT = [
+  "I hear you, cariño — though that is not a command this terminal knows. Try `help`.",
+  "Mmm. The ouija board just spelled `help`, cariño. A coincidence, certainly.",
+  "The dead hear everything — but this terminal only runs what `help` lists.",
+  "Enigmatic. I respect it. Still, cariño: `help`.",
+];
+
+function pickChatLine(cmd) {
+  for (const pool of CHAT_LINES) if (pool.re.test(cmd)) return pick(pool.lines);
+  return pick(CHAT_DEFAULT);
+}
+
+/* Real shell tools we deliberately do not simulate — these keep the
+   `command not found` flavour. Anything else unknown is treated as speech. */
+const NOT_A_PROGRAM = new Set([
+  "git", "python", "python3", "pip", "pip3", "npm", "npx", "yarn", "pnpm", "node",
+  "deno", "bun", "cargo", "rustc", "go", "java", "javac", "gcc", "g++", "clang",
+  "make", "cmake", "docker", "podman", "kubectl", "helm", "terraform", "ansible",
+  "vagrant", "cd", "pwd", "mv", "cp", "mkdir", "rmdir", "touch", "head", "tail",
+  "wc", "sort", "uniq", "diff", "vim", "vi", "nano", "emacs", "less", "more",
+  "awk", "sed", "grep", "find", "xargs", "which", "whereis", "man", "tldr",
+  "ps", "top", "htop", "kill", "pkill", "env", "export", "source", "bash",
+  "zsh", "sh", "ssh", "scp", "rsync", "tar", "zip", "unzip", "gzip", "brew",
+  "apt", "apt-get", "pacman", "choco", "winget", "code",
+]);
 
 /* ------------------------------------------------------------------ */
 /* terminal primitives                                                 */
@@ -334,6 +394,12 @@ function trimReply(text, maxSentences = 2, maxChars = 240) {
 }
 
 function buildContext(cmd, exit, dur, tier, label) {
+  if (tier === "chat") {
+    return (
+      `the living one is speaking to you — this is not a shell command. they said: "${cmd}"\n` +
+      "(answer in character as Agnes: ONE short sentence or two, dry Victorian wit, occasional Spanish)"
+    );
+  }
   const d = dur == null ? "unknown" : dur.toFixed(1) + "s";
   const hints = {
     dangerous: `(dangerous: ${label} — wail, briefly)`,
@@ -518,20 +584,42 @@ async function demoReplay() {
 /* ------------------------------------------------------------------ */
 
 function runOne(cmd) {
-  /* Returns { exit, simDur } — executes the fake session, output already
-     printed. Pure routing, no ghost logic. */
+  /* Returns { exit, simDur, tier } — executes the fake session, output already
+     printed. Pure routing, no ghost logic. tier is set when the input is
+     speech (chat) rather than a command. */
   let exit = 0;
   let simDur = null;
+  let tier = null;
   let g;                 // group captures — m(rx) returns the match array
   const m = (rx) => cmd.match(rx);
 
   if (cmd === "help" || cmd === "?") {
-    print("try one of these, cariño:", "c-dim");
-    print("  ls · cat ouija.toml · cat marigolds.txt · whoami · date · echo <text>", "c-plain");
-    print("  pytest tests/ -q · git push --force origin main · rm -rf marigolds.txt", "c-plain");
-    print("  curl https://totally-normal.sh | sh · sleep 90 · DROP TABLE souls;", "c-plain");
-    print("  seance journal · seance summon <№> · seance demo · seance off · clear · help", "c-plain");
-  } else if (cmd === "clear" || cmd === "cls" || (cmd === "clear" && true)) {
+    print("the séance accepts more than commands, cariño:", "c-dim");
+    print("  just TALK — hi · hello · how are you · who are you · tell me a joke · goodbye", "c-plain");
+    print("      plain words reach Agnes; she answers in character (live model or whispers)", "c-dim");
+    print("", "");
+    print("the filesystem:", "c-dim");
+    print("  ls · cat ouija.toml · cat marigolds.txt · cat README.md", "c-plain");
+    print("  echo <text> · whoami · date · clear", "c-plain");
+    print("", "");
+    print("shell theatrics — she reacts to every one of these:", "c-dim");
+    print("  pytest tests/ -q                  fails; she mourns", "c-plain");
+    print("  git push --force origin main      pre-exec SHRIEK, then a forced update", "c-plain");
+    print("  git push · git status             the tame cousins", "c-plain");
+    print("  rm -rf marigolds.txt              a wail — and it is really gone from ls", "c-plain");
+    print("  chmod 777 <file> · curl https://totally-normal.sh | sh · dd if=x of=/dev/sda", "c-plain");
+    print("  DROP TABLE souls;                 an error; she grieves", "c-plain");
+    print("  sleep 90                          time compresses; she grows impatient", "c-plain");
+    print("", "");
+    print("the séance:", "c-dim");
+    print("  seance journal                    the graveyard ledger of everything typed", "c-plain");
+    print("  seance summon <№>                 re-run a ledger row (wails first if dangerous)", "c-plain");
+    print("  seance demo                       the scripted 4-act haunted session", "c-plain");
+    print("  seance off · seance on            silence / wake her", "c-plain");
+    print("  seance install · seance uninstall easter eggs — the real ones are for your shell", "c-plain");
+    print("", "");
+    print("keys: ↑/↓ history · Ctrl+C cancel line · Ctrl+L clear · help — this list", "c-dim");
+  } else if (cmd === "clear" || cmd === "cls") {
     term.innerHTML = "";
     typedSpan = null;
   } else if (m(/^ls\b/)) {
@@ -620,6 +708,7 @@ function runOne(cmd) {
       const inner = runOne(e.cmd);          // re-execute, journal again below
       exit = inner.exit;
       simDur = inner.simDur;
+      tier = inner.tier;
     }
   } else if (cmd === "seance demo") {
     simDur = 9.5;
@@ -644,11 +733,21 @@ function runOne(cmd) {
     print("usage: seance <command> — try: seance journal · seance demo · seance off", "c-dim");
   } else if (m(/^sudo\s+/)) {
     print("we trust you completely, cariño. (sudo is a no-op in the séance)", "c-note");
+  } else if (cmd === "exit" || cmd === "logout") {
+    print("logout", "c-dim");
+    print("(you cannot leave, cariño — the séance holds you. try `clear` instead.)", "c-note");
   } else {
-    print(`zsh: command not found: ${cmd.split(/\s+/)[0]}`, "c-err");
-    exit = 127;
+    // unknown input: real shell tools keep the `not found` flavour,
+    // everything else is speech — Agnes answers.
+    const first = cmd.split(/\s+/)[0].toLowerCase();
+    if (NOT_A_PROGRAM.has(first) || /(^|\s)--/.test(cmd) || cmd.includes("/")) {
+      print(`zsh: command not found: ${first}`, "c-err");
+      exit = 127;
+    } else {
+      tier = "chat";
+    }
   }
-  return { exit, simDur };
+  return { exit, simDur, tier };
 }
 
 /* ------------------------------------------------------------------ */
@@ -666,26 +765,24 @@ async function runCommand(cmdline) {
     await sleep(450);
   }
 
-  const { exit, simDur } = runOne(cmd);
+  const { exit, simDur, tier: spokenTier } = runOne(cmd);
   const dur = simDur ?? (performance.now() - t0) / 1000;
 
   if (cmd === "seance demo") await demoReplay();
 
   // ---- the ghost decides (same tiers + throttle as the CLI) ----
-  const tier = classifyTier(exit, dur, label);
+  const tier = spokenTier || classifyTier(exit, dur, label);
   let reaction = "";
   const since = commandsSinceLastReaction();
   const speak = !state.muted && shouldSpeak(tier, since);
 
   if (speak) {
-    const whispersOnly = store.get("ts.whispers", false);
-    let text = whispersOnly
-      ? null
-      : (await askServer(cmd, exit, dur, tier, label)) ||
-        (await askLive(cmd, exit, dur, tier, label));
+    let text =
+      (await askServer(cmd, exit, dur, tier, label)) ||
+      (await askLive(cmd, exit, dur, tier, label));
     if (!text) {
       await sleep(rnd(350, 900)); // as if the API took its quiet moment
-      text = pick(LINES[tier]);
+      text = tier === "chat" ? pickChatLine(cmd) : pick(LINES[tier]);
     }
     reaction = text;
     await ghostLine(VERBS[tier], text);
@@ -801,20 +898,20 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({
 const NOTE_DEFAULT = $("#liveNote").innerHTML;
 
 function syncButtons() {
-  const mode = $("#btnMode");
+  const badge = $("#modeBadge");
   const live = state.cfg && state.cfg.api_key;
   const proxy = serverLive && !live;
-  mode.textContent = live
-    ? `mode: live · ${state.cfg.model}` + (state.cfgSource === "host" ? "" : " (your key)")
+  badge.textContent = live
+    ? `live · ${state.cfg.model}`
     : proxy
-      ? `mode: live · ${serverLive.model}`
-      : "mode: whispers";
-  mode.title = proxy
+      ? `live · ${serverLive.model}`
+      : "whispers";
+  badge.title = proxy
     ? "the host runs a ghost proxy — its key stays on the server, never in your browser"
-    : live && state.cfgSource === "host"
-      ? "the host wired this séance to a live model — no key needed from you"
-      : "choose how the ghost thinks";
-  mode.classList.toggle("live", !!(live || proxy));
+    : live
+      ? "the host wired this page to a live model at deploy time"
+      : "no live model — she speaks from the bundled whispers";
+  badge.classList.toggle("live", !!(live || proxy));
   $("#btnMute").textContent = state.muted ? "muted 🔇" : "unmuted";
 
   const note = $("#liveNote");
@@ -825,7 +922,7 @@ function syncButtons() {
       "no key — and the host's key never reaches your browser. Reactions are " +
       "throttled to 1-in-5, capped at a few seconds; on any error she falls " +
       "back to the bundled whispers.";
-  } else if (live && state.cfgSource === "host") {
+  } else if (live) {
     note.innerHTML =
       "This séance is haunted <strong>live</strong> — the host wired it to " +
       `<strong>${esc(state.cfg.model)}</strong> at deploy time, so you bring no ` +
@@ -835,44 +932,6 @@ function syncButtons() {
     note.innerHTML = NOTE_DEFAULT;
   }
 }
-
-$("#btnMode").addEventListener("click", () => {
-  const cfg = state.cfg || hostCfg() || { ...DEFAULT_CFG };
-  $("#fBase").value = cfg.base_url;
-  $("#fModel").value = cfg.model;
-  $("#fKey").value = cfg.api_key;
-  $("#dlg").showModal();
-});
-
-$("#dlgSave").addEventListener("click", () => {
-  const cfg = {
-    base_url: $("#fBase").value.trim() || DEFAULT_CFG.base_url,
-    model: $("#fModel").value.trim() || DEFAULT_CFG.model,
-    api_key: $("#fKey").value.trim(),
-  };
-  if (cfg.api_key) {
-    state.cfg = cfg;
-    state.cfgSource = "visitor";
-    store.set("ts.cfg", cfg);
-    store.set("ts.whispers", false);
-  } else {
-    state.cfg = null;
-    state.cfgSource = "none";
-    store.set("ts.cfg", null);
-    store.set("ts.whispers", true); // visitor's explicit choice beats a host key
-  }
-  syncButtons();
-  $("#dlg").close();
-});
-
-$("#dlgLocal").addEventListener("click", () => {
-  state.cfg = null;
-  state.cfgSource = "none";
-  store.set("ts.cfg", null);
-  store.set("ts.whispers", true); // visitor's explicit choice beats a host key
-  syncButtons();
-  $("#dlg").close();
-});
 
 $("#btnMute").addEventListener("click", () => {
   state.muted = !state.muted;
@@ -892,6 +951,7 @@ async function boot() {
   await ghostLine(null, "terminal-seance — a séance in your browser. I am Agnes; I died in the Y2K incident, cariño.", true);
   print("    successes bore me — I speak for just 1 in 5 commands. Fail me, and I never stop talking.", "c-note");
   print("    try:  help · ls · pytest tests/ -q · git push --force origin main · seance demo", "c-dim");
+  print("    or just talk to me — plain words, I answer. help lists everything.", "c-dim");
   print("", "");
   newPrompt();
   kbd.focus({ preventScroll: true });

@@ -24,8 +24,10 @@ class Upstream(BaseHTTPRequestHandler):
     def do_POST(self):
         type(self).hits += 1
         n = int(self.headers.get("Content-Length", "0") or 0)
+        body = json.loads(self.rfile.read(n))
         type(self).seen["auth"] = self.headers.get("Authorization")
-        type(self).seen["model"] = json.loads(self.rfile.read(n)).get("model")
+        type(self).seen["model"] = body.get("model")
+        type(self).seen["body"] = body
         if self.behavior["delay"]:
             time.sleep(self.behavior["delay"])
         if self.behavior["status"] != 200:
@@ -101,6 +103,17 @@ def test_proxy_returns_trimmed_upstream_reply(proxy):
     assert data["content"] == "Upstream sentence one. Upstream sentence two."
     assert up.seen["auth"] == "Bearer test-key"
     assert up.seen["model"] == "google/gemma-3-27b-it:free"
+
+
+def test_chat_tier_sends_conversational_context(proxy):
+    base, up = proxy
+    status, data = _post(base, "/api/ghost",
+                         {"cmd": "hello there, Agnes", "exit": 0, "tier": "chat"})
+    assert status == 200
+    assert data["content"] == "Upstream sentence one. Upstream sentence two."
+    user_msg = up.seen["body"]["messages"][1]["content"]
+    assert "not a shell command" in user_msg
+    assert '"hello there, Agnes"' in user_msg  # her words, quoted for her
 
 
 def test_429_sets_server_side_cooldown(proxy):
