@@ -1,0 +1,181 @@
+<!doctype html>
+<!--
+  terminal_mock.html — an HTML mock of a macOS Terminal.app window.
+
+  Used by scripts/capture_assets.py to render `seance demo --json` events
+  with the Mac look (translucent dark window, traffic lights, Menlo-style
+  mono) on any dev machine — the host terminal is never trusted to look
+  right. Pure static page; all animation is driven by the functions below.
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; padding: 0; }
+  body { width: 900px; height: 780px; }
+
+  .desktop {
+    position: fixed; inset: 0;
+    background: radial-gradient(1100px 700px at 18% 8%, #43315e 0%, #2a2140 42%, #191327 100%);
+  }
+
+  .win {
+    position: absolute; left: 40px; top: 40px; width: 744px;
+    border-radius: 11px; overflow: hidden;
+    background: rgba(26, 22, 30, 0.88);
+    backdrop-filter: blur(16px) saturate(1.15);
+    -webkit-backdrop-filter: blur(16px) saturate(1.15);
+    box-shadow: 0 30px 80px rgba(0,0,0,.60), 0 0 0 1px rgba(255,255,255,.10);
+    font-family: "SF Mono", Menlo, Monaco, "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Segoe UI Symbol", monospace;
+  }
+
+  .titlebar {
+    height: 36px; display: flex; align-items: center; padding: 0 14px;
+    position: relative;
+    background: linear-gradient(rgba(66,60,74,.92), rgba(50,45,58,.88));
+    border-bottom: 1px solid rgba(0,0,0,.4);
+  }
+  .dot { width: 13px; height: 13px; border-radius: 50%; margin-right: 8px;
+         box-shadow: inset 0 0 0 .5px rgba(0,0,0,.28); }
+  .r { background: #ff5f57; } .y { background: #febc2e; } .g { background: #28c840; }
+  .title {
+    position: absolute; left: 0; right: 0; text-align: center; pointer-events: none;
+    color: #b7b1bd; font: 500 13px -apple-system, "Segoe UI", system-ui, sans-serif;
+  }
+
+  .term {
+    height: 480px; padding: 14px 16px; box-sizing: border-box;
+    font-size: 13.5px; line-height: 1.5; white-space: pre-wrap;
+    word-break: normal; overflow-wrap: break-word;
+    color: #e7e2e8; overflow: hidden;
+    text-shadow: 0 0 7px rgba(255, 159, 67, .05);
+  }
+  .ln { min-height: 1.5em; }
+  .caret {
+    display: inline-block; width: .62em; height: 1.12em; vertical-align: text-bottom;
+    background: #e7e2e8; margin-left: 1px;
+  }
+</style>
+</head>
+<body>
+<div class="desktop"></div>
+<div class="win">
+  <div class="titlebar">
+    <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+    <div class="title">ghost@book — -zsh — 80×24</div>
+  </div>
+  <div class="term" id="term"></div>
+</div>
+<script>
+const STYLE = {
+  prompt: "#8be28f", user: "#8be28f", plain: "#e7e2e8", dim: "#8f8994",
+  err: "#ff7b72", ok: "#8be28f", ghost: "#ffa94d", wail: "#ffb15e",
+  note: "#9a939f", ledger: "#e3d5a8",
+};
+const BOLDISH = new Set(["prompt", "user", "ghost", "wail"]);
+
+let evs = [], i = 0, running = false, stopAt = null, curLine = null, caret = null;
+const termEl = () => document.getElementById("term");
+
+function cur() {
+  if (!curLine) {
+    curLine = document.createElement("div");
+    curLine.className = "ln";
+    termEl().appendChild(curLine);
+  }
+  return curLine;
+}
+function newline() { curLine = null; cur(); }
+function moveCaret() {
+  if (!caret) { caret = document.createElement("span"); caret.className = "caret"; }
+  cur().appendChild(caret);
+  const t = termEl(); t.scrollTop = t.scrollHeight;
+}
+function span(text, styleName) {
+  const s = document.createElement("span");
+  s.textContent = text;
+  s.style.color = STYLE[styleName] || STYLE.plain;
+  if (BOLDISH.has(styleName)) s.style.fontWeight = "600";
+  if (styleName === "note") s.style.fontStyle = "italic";
+  cur().appendChild(s);
+  return s;
+}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function typeInto(text, styleName, ms, target) {
+  for (const ch of text) {
+    target.textContent += ch;
+    moveCaret();
+    await sleep(ms);
+  }
+}
+
+async function handle(ev) {
+  const t = ev.t;
+  if (t === "clear") { termEl().innerHTML = ""; curLine = null; caret = null; }
+  else if (t === "prompt") {
+    newline(); span(ev.user, "user"); span(ev.rest, "plain");
+  } else if (t === "cmd") {
+    await typeInto(ev.text, "plain", 26, span("", "plain"));
+  } else if (t === "out") {
+    newline(); span(ev.text, ev.style || "plain");
+  } else if (t === "ledger") {
+    for (const line of ev.text.split("\n")) { newline(); span(line, "ledger"); }
+  } else if (t === "wail") {
+    for (const line of ev.lines) {
+      newline();
+      if (line.startsWith("(")) span("  " + line, "note");
+      else span("  " + line, "wail");
+    }
+  } else if (t === "ghost") {
+    newline();
+    const note = ev.style === "note";
+    span("  † ", note ? "note" : "ghost");
+    if (ev.verb) {
+      span(ev.name + " ", "ghost");
+      span(ev.verb, "dim"); span(" — ", "dim");
+    }
+    await typeInto(ev.text, note ? "note" : "ghost", 16, span("", note ? "note" : "ghost"));
+  } else if (t === "note") {
+    newline(); span("  (" + ev.text + ")", "note");
+  } else if (t === "sleep") {
+    await sleep(ev.ms);
+  }
+  moveCaret();
+}
+
+async function step() {
+  while (i < evs.length) {
+    const ev = evs[i++];
+    if (ev.t === "act" && stopAt !== null && ev.n === stopAt) {
+      window.__paused = true;
+      return;
+    }
+    await handle(ev);
+  }
+  window.__done = true;
+}
+
+window.seanceInit = (e) => {
+  evs = e; i = 0; running = false; stopAt = null;
+  window.__done = false; window.__paused = false;
+};
+window.seanceActs = () =>
+  evs.filter((e) => e.t === "act").reduce((m, e) => Math.max(m, e.n), 0);
+window.seanceRunToAct = (k) => {
+  stopAt = k;
+  if (window.__paused) { window.__paused = false; step(); }
+  else if (!running) { running = true; step(); }
+};
+window.seanceRunAll = () => {
+  stopAt = null;
+  if (!running || window.__paused) { window.__paused = false; running = true; step(); }
+};
+window.seanceRect = () => {
+  const r = document.querySelector(".win").getBoundingClientRect();
+  return { x: r.x, y: r.y, width: r.width, height: r.height };
+};
+window.seanceSolidCaret = () => { if (caret) caret.style.opacity = "1"; };
+</script>
+</body>
+</html>

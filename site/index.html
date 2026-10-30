@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1a141e">
+<title>terminal-seance — a haunted terminal in your browser</title>
+<meta name="description" content="Agnes, a Victorian programmer's ghost who died in the Y2K incident, haunts a terminal in your browser. Powered by open-weight Gemma — or by bundled whispers when you bring no key.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231a141e'/%3E%3Ctext x='16' y='24' font-size='21' text-anchor='middle' fill='%23ffa94d' font-family='serif'%3E%E2%80%A0%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="brand"><span class="glyph">†</span> terminal-seance <span class="sub">· the ghost in your machine</span></div>
+  <nav>
+    <button id="btnMode" class="chip" title="choose how the ghost thinks">mode: whispers</button>
+    <button id="btnMute" class="chip" title="silence her (seance off)">unmuted</button>
+    <a class="chip" href="https://github.com/terminal-seance/terminal-seance" target="_blank" rel="noopener">GitHub ↗</a>
+  </nav>
+</header>
+
+<main>
+  <div class="win" id="win">
+    <div class="titlebar">
+      <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+      <div class="title">ghost@book — -zsh — 80×24</div>
+    </div>
+    <div class="term" id="term"></div>
+    <input id="kbd" type="text" autocomplete="off" autocapitalize="off"
+           autocorrect="off" spellcheck="false" aria-label="terminal input">
+  </div>
+
+  <section class="below">
+    <div class="install">
+      <span class="install-label">the same ghost, in your own shell:</span>
+      <code>uv tool install terminal-seance &amp;&amp; seance install</code>
+    </div>
+    <p class="note" id="liveNote">
+      No key needed — she speaks from a bundled list of whispers, and boring
+      successes are throttled to 1-in-5 on purpose. Open <em>mode</em>, paste an
+      OpenRouter key, and she thinks with <strong>google/gemma-3-27b-it:free</strong>
+      instead — capped at 2.5&nbsp;s, one attempt, falling back to whispers on any
+      error. Your key never leaves this browser except to the endpoint you set.
+    </p>
+  </section>
+</main>
+
+<dialog id="dlg">
+  <h3>how the ghost thinks</h3>
+  <p class="dlg-note">
+    Empty key → bundled whispers (offline, always works). With a key she calls
+    any OpenAI-compatible chat endpoint live — OpenRouter's free Gemma tier, or
+    your own llama.cpp / LM Studio server. Errors, timeouts and rate limits
+    silently fall back to whispers.
+  </p>
+  <label>base_url <input id="fBase" type="text" spellcheck="false"></label>
+  <label>model <input id="fModel" type="text" spellcheck="false"></label>
+  <label>api key <input id="fKey" type="password" autocomplete="off" placeholder="sk-or-v1-…"></label>
+  <div class="dlg-actions">
+    <button id="dlgLocal" class="ghostbtn">use local whispers</button>
+    <button id="dlgSave" class="primary">haunt (save)</button>
+  </div>
+</dialog>
+
+<!-- generated at build/deploy time by scripts/build_site.py (gitignored);
+     missing on a fresh clone — the ghost simply runs in whispers mode -->
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

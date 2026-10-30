@@ -1,0 +1,33 @@
+# Render Blueprint — one-click hosting for the web séance.
+#
+#   1. push this repo to GitHub
+#   2. Render dashboard → New → Blueprint → pick the repo
+#   3. paste your OPENROUTER_API_KEY when prompted (or leave blank and set it
+#      later in the service's Environment tab — the site then runs in
+#      whispers mode until you do)
+#   4. deploy → https://terminal-seance.onrender.com
+#
+# The key is stored server-side as an environment variable and is NEVER sent
+# to the browser: the app talks to this service's /api/ghost proxy, which
+# holds the key and calls OpenRouter itself. Recommend a dedicated key
+# limited to free models — the ghost's 1-in-5 throttle keeps usage modest.
+#
+# Free-tier note: the service sleeps after ~15 min idle; the first visitor
+# wakes it (~30–60 s). Until then the ghost politely whispers instead.
+
+services:
+  - type: web
+    name: terminal-seance
+    runtime: python
+    plan: free
+    healthCheckPath: /api/ghost/health
+    buildCommand: pip install .
+    startCommand: seance serve
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
+      - key: OPENROUTER_API_KEY
+        sync: false
+      # optional overrides — add in the dashboard if you want them:
+      # SEANCE_MODEL   (default google/gemma-3-27b-it:free)
+      # SEANCE_BASE_URL (default https://openrouter.ai/api/v1)

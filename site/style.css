@@ -1,0 +1,233 @@
+/* terminal-seance web — page chrome.
+   The terminal window is the same macOS Terminal.app mock used for the
+   README assets; everything here is hand-rolled, zero dependencies. */
+
+:root {
+  --marigold: #ffa94d;
+  --marigold-bright: #ffb15e;
+  --ink: #e7e2e8;
+  --dim: #8f8994;
+  --err: #ff7b72;
+  --ok: #8be28f;
+  --note: #9a939f;
+  --ledger: #e3d5a8;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  min-height: 100vh;
+  background: radial-gradient(1100px 700px at 18% 8%, #43315e 0%, #2a2140 42%, #191327 100%);
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ---------- header ---------- */
+
+header {
+  width: min(744px, 94vw);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 20px 0 12px;
+  flex-wrap: wrap;
+}
+
+.brand {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: .3px;
+}
+.brand .glyph { color: var(--marigold); font-family: Georgia, serif; margin-right: 2px; }
+.brand .sub { color: var(--dim); font-weight: 400; font-size: 13px; }
+
+nav { display: flex; gap: 8px; }
+
+.chip {
+  font: 500 12.5px -apple-system, "Segoe UI", system-ui, sans-serif;
+  color: #cfc9d4;
+  background: rgba(255, 255, 255, .07);
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 999px;
+  padding: 5px 12px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background .15s;
+}
+.chip:hover { background: rgba(255, 255, 255, .13); }
+.chip.live { color: var(--marigold); border-color: rgba(255, 169, 77, .45); }
+
+/* ---------- the terminal window ---------- */
+
+.win {
+  width: min(744px, 94vw);
+  border-radius: 11px;
+  overflow: hidden;
+  background: rgba(26, 22, 30, 0.88);
+  backdrop-filter: blur(16px) saturate(1.15);
+  -webkit-backdrop-filter: blur(16px) saturate(1.15);
+  box-shadow: 0 30px 80px rgba(0,0,0,.60), 0 0 0 1px rgba(255,255,255,.10);
+  font-family: "SF Mono", Menlo, Monaco, "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Segoe UI Symbol", monospace;
+}
+
+.titlebar {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  position: relative;
+  background: linear-gradient(rgba(66,60,74,.92), rgba(50,45,58,.88));
+  border-bottom: 1px solid rgba(0,0,0,.4);
+}
+.dot { width: 13px; height: 13px; border-radius: 50%; margin-right: 8px;
+       box-shadow: inset 0 0 0 .5px rgba(0,0,0,.28); }
+.r { background: #ff5f57; } .y { background: #febc2e; } .g { background: #28c840; }
+.title {
+  position: absolute; left: 0; right: 0; text-align: center; pointer-events: none;
+  color: #b7b1bd; font: 500 13px -apple-system, "Segoe UI", system-ui, sans-serif;
+}
+
+.term {
+  height: min(480px, 62vh);
+  padding: 14px 16px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: normal;
+  overflow-wrap: break-word;
+  color: var(--ink);
+  overflow-y: auto;
+  overflow-x: hidden;
+  text-shadow: 0 0 7px rgba(255, 159, 67, .05);
+  cursor: text;
+}
+.term::-webkit-scrollbar { width: 8px; }
+.term::-webkit-scrollbar-thumb { background: rgba(255,255,255,.14); border-radius: 4px; }
+
+.ln { min-height: 1.5em; }
+
+.caret {
+  display: inline-block;
+  width: .62em; height: 1.12em;
+  vertical-align: text-bottom;
+  background: var(--ink);
+  margin-left: 1px;
+  animation: blink 1.1s steps(1) infinite;
+}
+.caret.solid { animation: none; opacity: 1; }
+@keyframes blink { 50% { opacity: 0; } }
+
+.c-user  { color: var(--ok); font-weight: 600; }
+.c-plain { color: var(--ink); }
+.c-dim   { color: var(--dim); }
+.c-err   { color: var(--err); }
+.c-ok    { color: var(--ok); }
+.c-ghost { color: var(--marigold); }
+.c-ghost-b { color: var(--marigold); font-weight: 600; }
+.c-wail  { color: var(--marigold-bright); font-weight: 600; }
+.c-note  { color: var(--note); font-style: italic; }
+.c-ledger { color: var(--ledger); }
+
+/* hidden-but-focusable input that captures typing */
+#kbd {
+  position: fixed;
+  bottom: 0; left: 0;
+  width: 1px; height: 1px;
+  opacity: 0;
+  border: 0; padding: 0;
+  font-size: 16px;   /* prevents iOS zoom-on-focus */
+  background: transparent;
+  color: transparent;
+}
+
+/* ---------- below the window ---------- */
+
+.below { width: min(744px, 94vw); margin: 16px 0 40px; }
+
+.install {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.install-label { color: var(--dim); font-size: 13px; }
+.install code {
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  color: var(--ok);
+  background: rgba(139, 226, 143, .08);
+  border: 1px solid rgba(139, 226, 143, .2);
+  border-radius: 7px;
+  padding: 6px 10px;
+}
+
+.note {
+  color: var(--note);
+  font-size: 12.5px;
+  line-height: 1.55;
+  margin: 0;
+}
+.note strong { color: var(--marigold); font-weight: 600; }
+
+/* ---------- settings dialog ---------- */
+
+dialog {
+  background: rgba(38, 32, 44, .97);
+  color: var(--ink);
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 12px;
+  padding: 20px 22px;
+  width: min(430px, 92vw);
+  box-shadow: 0 24px 70px rgba(0,0,0,.6);
+}
+dialog::backdrop { background: rgba(10, 7, 14, .6); backdrop-filter: blur(3px); }
+
+dialog h3 { margin: 0 0 8px; font-size: 15px; color: var(--marigold); }
+.dlg-note { color: var(--note); font-size: 12.5px; line-height: 1.55; margin: 0 0 14px; }
+
+dialog label {
+  display: block;
+  font-size: 12px;
+  color: var(--dim);
+  margin-bottom: 10px;
+}
+dialog input {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  color: var(--ink);
+  background: rgba(0, 0, 0, .35);
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 7px;
+  padding: 8px 10px;
+  outline: none;
+}
+dialog input:focus { border-color: rgba(255, 169, 77, .55); }
+
+.dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.ghostbtn, .primary {
+  font: 500 13px -apple-system, "Segoe UI", system-ui, sans-serif;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, .16);
+  background: rgba(255, 255, 255, .06);
+  color: var(--ink);
+}
+.primary {
+  background: var(--marigold);
+  border-color: var(--marigold);
+  color: #2a1810;
+  font-weight: 600;
+}
+.primary:hover { filter: brightness(1.08); }

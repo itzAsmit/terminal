@@ -1,0 +1,49 @@
+# Publishes site/ (the browser séance) to GitHub Pages on every push to main.
+# One-time setup in the repo: Settings → Pages → Build and deployment →
+# Source: "GitHub Actions". The site is fully static — no build step.
+name: Deploy the séance to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ["site/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+
+      # Optional live mode: add OPENROUTER_API_KEY as a repo secret and the
+      # deployed site thinks with Gemma — visitors bring no key.
+      # !! The injected key is readable by anyone (it ships in the page) —
+      # !! use a dedicated key limited to free models with a $0 spend cap.
+      - name: Inject live key (optional)
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          if [ -n "$OPENROUTER_API_KEY" ]; then
+            python3 scripts/build_site.py
+          else
+            echo "no OPENROUTER_API_KEY secret — shipping in whispers mode"
+          fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
